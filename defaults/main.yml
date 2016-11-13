@@ -1,0 +1,7 @@
+---
+monitoring_allowed_hosts: [ '127.0.0.1' ]
+check_mk_service: check_mk
+check_mk_packages:
+  - xinetd
+  - "{{ check_mk_server_url }}/{{ omdistro_site }}/check_mk/agents/{{ check_mk_package_file }}"
+check_mk_dir: /usr/lib/check_mk_agent

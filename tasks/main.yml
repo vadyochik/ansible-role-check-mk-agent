@@ -1,0 +1,36 @@
+---
+
+- name: YUM | Install Check-MK agent
+  yum: pkg="{{ item }}" state=present
+  with_items: "{{ check_mk_packages }}"
+  when: ansible_os_family == "RedHat"
+  tags: packages
+
+- name: Configure check_mk xinetd service
+  lineinfile: dest="/etc/xinetd.d/{{ check_mk_service }}"
+              state=present
+              create=no
+              backup=yes
+              owner=root
+              group=root
+              mode=0600
+              regexp='^\s*(#)?only_from\s*'
+              line="\tonly_from      = {{ monitoring_allowed_hosts | join (' ') }}"
+  notify: restart xinetd
+
+- name: Add additional plugins..
+  get_url: url="{{ check_mk_server_url }}/{{ omdistro_site }}/check_mk/agents/plugins/{{ item }}" dest="{{ check_mk_dir }}/plugins/{{ item }}" mode=0755
+  with_items: "{{ check_mk_plugins }}"
+  when: check_mk_plugins is defined
+
+- name: Copy apache config for /server-status url and apache_status plugin config
+  copy: src='{{ item.src }}' dest='{{ item.dest }}'
+  with_items:
+    - { src: 'httpd-00-default.conf', dest: '/etc/httpd/conf.d/00-default.conf' }
+    - { src: 'apache_status.cfg', dest: '/etc/check_mk/apache_status.cfg' }
+  notify: reload httpd
+  when: check_mk_plugins is defined and 'apache_status' in check_mk_plugins
+
+- name: Make sure xinetd service is enabled and started
+  service: name=xinetd enabled=yes state=running
+
